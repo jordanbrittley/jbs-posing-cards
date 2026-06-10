@@ -1,0 +1,11 @@
+{
+  "name": "JBS Posing Cards",
+  "short_name": "Posing Cards",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#faf6f0",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

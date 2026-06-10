@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Posing Cards">
+<meta name="theme-color" content="#faf6f0">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>JBS Posing Cards</title>
+<style>
+  :root {
+    --bg: #faf6f0;
+    --ink: #3d3733;
+    --soft: #8a8178;
+    --accent: #b08d6e;
+    --card: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 8px;
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  .progress { font-size: 13px; color: var(--accent); font-weight: 600; }
+
+  #deck {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 4px 14px 10px;
+    opacity: 0;
+    transform: translateX(24px);
+    transition: opacity .22s ease, transform .22s ease;
+    pointer-events: none;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  .photo {
+    flex: 1;
+    min-height: 0;
+    border-radius: 18px;
+    background-size: cover;
+    background-position: center top;
+    box-shadow: 0 6px 24px rgba(61,55,51,.12);
+  }
+  .prompt {
+    padding: 14px 6px 6px;
+    text-align: center;
+    font-size: 17px;
+    line-height: 1.45;
+    min-height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .prompt em { color: var(--accent); font-style: normal; font-weight: 600; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    padding: 0 16px 14px;
+  }
+  button {
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 0;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  #shuffleBtn {
+    flex: 1;
+    background: var(--ink);
+    color: #fff;
+  }
+  #shuffleBtn:active { transform: scale(.98); }
+  #gridBtn {
+    width: 56px;
+    background: #efe8de;
+    color: var(--ink);
+    font-size: 20px;
+  }
+
+  /* grid view */
+  #grid {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  #grid.open { display: flex; }
+  #grid .cells {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 8px 14px 20px;
+  }
+  .cell {
+    aspect-ratio: 3/4;
+    border-radius: 12px;
+    background-size: cover;
+    background-position: center top;
+  }
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    padding-bottom: 8px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #d9cfc2; transition: background .2s; }
+  .dot.active { background: var(--accent); }
+  .dot.seen { background: var(--ink); opacity: .35; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Posing Cards</h1>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div id="deck"></div>
+<div class="dots" id="dots"></div>
+<div class="controls">
+  <button id="shuffleBtn">Shuffle poses 🔀</button>
+  <button id="gridBtn">⊞</button>
+</div>
+
+<div id="grid">
+  <header>
+    <h1>All Poses</h1>
+    <div class="progress" id="gridClose" style="font-size:15px">Close ✕</div>
+  </header>
+  <div class="cells" id="cells"></div>
+</div>
+
+<script>
+// ====== EDIT YOUR PROMPTS HERE ======
+const CARDS = [
+  { img: "cards/01.jpg", prompt: "Turn away from me and hold your bouquet low in front of you — now look down at the flowers over your shoulder." },
+  { img: "cards/02.jpg", prompt: "Stay turned away, bouquet in front — drop your chin toward your shoulder and give me a soft smile down at the blooms." },
+  { img: "cards/03.jpg", prompt: "Hold the bouquet between you, get nose to nose, and almost kiss — stop right before your lips touch and stay there." },
+  { img: "cards/04.jpg", prompt: "Hold hands and take a slow walk toward me — keep looking at each other, not at me." },
+  { img: "cards/05.jpg", prompt: "Wrap her up at the waist and pull her in — slow kiss, no rush, like nobody's watching." },
+  { img: "cards/06.jpg", prompt: "Stay in that hug — now pull back an inch, tip your noses together, and breathe." },
+  { img: "cards/07.jpg", prompt: "Pull the veil over both of your heads — get close and whisper something only she gets to hear." },
+  { img: "cards/08.jpg", prompt: "Take her hand up high and spin her out like a slow dance — keep spinning until somebody laughs." },
+  { img: "cards/09.jpg", prompt: "Pull her in close with her hands resting on your chest — rest your cheek on the top of her head and relax your shoulders." },
+  { img: "cards/10.jpg", prompt: "Get cheek to cheek and squeeze in tight — now both of you look right at me with big real smiles." },
+  { img: "cards/11.jpg", prompt: "Walk away from me down the path, hand in hand — halfway down, stop and steal a kiss like I'm not here." },
+  { img: "cards/12.jpg", prompt: "Come in from the side and hug her, her hand reaching up around your neck — both close your eyes for a second." },
+  { img: "cards/13.jpg", prompt: "Back her up against the wall — she hooks the bouquet behind your neck while you lean in for a kiss." },
+  { img: "cards/14.jpg", prompt: "Take her hand, bow in a little, and kiss it like you mean it — eyes closed, slow." },
+  { img: "cards/15.jpg", prompt: "Dip her back low and kiss her — bouquet stretched out wide. Hold it, hold it... big finish!" },
+];
+// ====================================
+
+const deck = document.getElementById("deck");
+const dots = document.getElementById("dots");
+const cells = document.getElementById("cells");
+
+CARDS.forEach((c, i) => {
+  const s = document.createElement("div");
+  s.className = "slide";
+  s.innerHTML = `<div class="photo" style="background-image:url('${c.img}')"></div>
+                 <div class="prompt"><span><em>${i + 1}.</em> ${c.prompt}</span></div>`;
+  deck.appendChild(s);
+
+  const d = document.createElement("div");
+  d.className = "dot";
+  dots.appendChild(d);
+
+  const cell = document.createElement("div");
+  cell.className = "cell";
+  cell.style.backgroundImage = `url('${c.img}')`;
+  cell.onclick = () => { jumpTo(i); closeGrid(); };
+  cells.appendChild(cell);
+});
+
+const slides = [...deck.children];
+const dotEls = [...dots.children];
+
+// Shuffle cycle: deal every pose exactly once, then loop back to pose 1
+// `order` always starts at pose 0, followed by poses 1-14 in random order.
+let order, pos;
+
+function newCycle() {
+  const rest = CARDS.map((_, i) => i).slice(1);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  order = [0, ...rest];
+  pos = 0;
+}
+newCycle();
+
+function render() {
+  const current = order[pos];
+  slides.forEach((s, i) => s.classList.toggle("active", i === current));
+  dotEls.forEach((d, i) => {
+    d.classList.toggle("active", i === current);
+    d.classList.toggle("seen", order.slice(0, pos).includes(i));
+  });
+  document.getElementById("progress").textContent = `pose ${pos + 1} of ${CARDS.length}`;
+}
+
+function advance(step) {
+  pos += step;
+  if (pos >= order.length) newCycle();      // full cycle done — reshuffle, land on pose 1
+  if (pos < 0) pos = order.length - 1;
+  render();
+}
+
+function jumpTo(cardIndex) {
+  pos = order.indexOf(cardIndex);
+  render();
+}
+
+document.getElementById("shuffleBtn").onclick = () => advance(1);
+
+// swipe still works: forward/back through the same shuffled order
+let startX = null, startT = 0;
+deck.addEventListener("touchstart", e => { startX = e.touches[0].clientX; startT = Date.now(); }, { passive: true });
+deck.addEventListener("touchend", e => {
+  if (startX === null) return;
+  const dx = e.changedTouches[0].clientX - startX;
+  if (Math.abs(dx) > 40 || (Math.abs(dx) > 20 && Date.now() - startT < 250)) {
+    advance(dx < 0 ? 1 : -1);
+  }
+  startX = null;
+}, { passive: true });
+// desktop arrows for testing
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") advance(1);
+  if (e.key === "ArrowLeft") advance(-1);
+});
+
+// grid
+const grid = document.getElementById("grid");
+document.getElementById("gridBtn").onclick = () => grid.classList.add("open");
+document.getElementById("gridClose").onclick = closeGrid;
+function closeGrid() { grid.classList.remove("open"); }
+
+render();
+
+// offline support
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
