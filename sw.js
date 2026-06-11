@@ -1,4 +1,4 @@
-const CACHE = "posing-v2";
+const CACHE = "posing-v3";
 const ASSETS = [
   ".", "index.html", "manifest.json", "icon.png",
   ...Array.from({ length: 15 }, (_, i) => `cards/${String(i + 1).padStart(2, "0")}.jpg`),
